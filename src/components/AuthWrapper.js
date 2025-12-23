@@ -4,30 +4,25 @@ import { usePathname, useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 
 export default function AuthWrapper({ children }) {
-  const { user, loading } = useUser(); // Assume your context provides a 'loading' state
+  const { user } = useUser();
   const router = useRouter();
-  const pathname = usePathname(); // Get current path
+  const pathname = usePathname();
 
-  // Define public routes that don't require authentication
-  const publicRoutes = ["/login", "/signup", "/"]; // Add your public paths here
+  // Pages that don't require login
+  const publicRoutes = ["/login", "/register", "/forgot-password"];
 
-  // 1. Show nothing while checking auth state (optional, better than flash)
-  if (loading) {
-    return <div>Loading...</div>; // Or a spinner component
-  }
-
-  // 2. If user is NOT logged in AND trying to access a protected route ➡ redirect to login
+  // If no user AND trying to access a protected page → redirect to /login
   if (!user && !publicRoutes.includes(pathname)) {
     router.push("/login");
-    return null; // Render nothing during redirect
-  }
-
-  // 3. If user IS logged in AND trying to access login/signup ➡ redirect to dashboard
-  if (user && publicRoutes.includes(pathname)) {
-    router.push("/dashboard"); // Or your main app page
     return null;
   }
 
-  // 4. Otherwise, render the children (page content)
+  // If user exists AND trying to access login → redirect to dashboard
+  if (user && pathname === "/login") {
+    router.push("/dashboard"); // Change "/dashboard" to your app's main page
+    return null;
+  }
+
+  // Otherwise, show the page
   return <>{children}</>;
 }
