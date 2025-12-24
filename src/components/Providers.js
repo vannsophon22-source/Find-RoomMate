@@ -1,3 +1,4 @@
+// src/components/Providers.jsx
 "use client";
 
 import { UserProvider } from "@/context/UserContext";

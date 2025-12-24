@@ -1,16 +1,20 @@
 // context/UserContext.js
 "use client";
-import { createContext, useState, useContext, useEffect } from "react";
 
-const UserContext = createContext();
+import { createContext, useContext, useEffect, useState } from "react";
+
+const UserContext = createContext(null);
 
 export function UserProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); // 🔑 IMPORTANT
 
   useEffect(() => {
-    // Load user from localStorage if available
     const storedUser = localStorage.getItem("user");
-    if (storedUser) setUser(JSON.parse(storedUser));
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setLoading(false); // 🔑 hydration finished
   }, []);
 
   const login = (userData) => {
@@ -24,7 +28,7 @@ export function UserProvider({ children }) {
   };
 
   return (
-    <UserContext.Provider value={{ user, setUser, login, logout }}>
+    <UserContext.Provider value={{ user, setUser, login, logout, loading }}>
       {children}
     </UserContext.Provider>
   );
