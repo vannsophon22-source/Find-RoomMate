@@ -22,34 +22,23 @@ export default function LoginPage() {
       return;
     }
 
-    // Mock login logic based on email
-    let role = "user";
-    if (email === "admin@example.com") role = "admin";
-    else if (email === "owner@example.com") role = "owner";
-
+    // Mock login
     const loggedInUser = {
       id: 1,
       name: email.split("@")[0],
       email,
       avatar: "/users/default-avatar.svg",
-      role,
+      role: "user", // always user
     };
 
-    // Save to localStorage
     localStorage.setItem("user", JSON.stringify(loggedInUser));
-    localStorage.setItem("isLoggedIn", "true");
+    setUser && setUser(loggedInUser);
 
-    // Update context
-    if (setUser) setUser(loggedInUser);
+    setAlert({ message: `Welcome ${loggedInUser.name}!`, type: "success" });
 
-    setAlert({ message: `Welcome ${loggedInUser.name} (${role})!`, type: "success" });
-
-    // Redirect based on role
     setTimeout(() => {
-      if (role === "admin") router.push("/dashboard/admin");
-      else if (role === "owner") router.push("/dashboard/owner");
-      else router.push("/dashboard/user/homepage");
-    }, 1000);
+      router.replace("/dashboard/user/homepage"); // redirect to dashboard
+    }, 800);
 
     setLoading(false);
   };
@@ -63,7 +52,6 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           <InputField label="Email" placeholder="Enter your email" value={email} setValue={setEmail} type="email" disabled={loading} />
           <InputField label="Password" placeholder="Enter your password" value={password} setValue={setPassword} type="password" disabled={loading} />
-
           <button
             type="submit"
             disabled={loading}
@@ -89,10 +77,10 @@ function InputField({ label, placeholder, value, setValue, type = "text", disabl
         value={value}
         onChange={(e) => setValue(e.target.value)}
         disabled={disabled}
+        required
         className={`w-full px-4 py-3 rounded-xl border border-white/30 bg-white/20 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-yellow-300 backdrop-blur-sm transition ${
           disabled ? "opacity-70 cursor-not-allowed" : ""
         }`}
-        required
       />
     </div>
   );
@@ -100,7 +88,6 @@ function InputField({ label, placeholder, value, setValue, type = "text", disabl
 
 function Alert({ message, type = "success", onClose }) {
   const bgColor = type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
-
   return (
     <div className={`fixed top-6 right-6 px-6 py-4 rounded-lg shadow-lg ${bgColor} z-50`}>
       <div className="flex items-center justify-between">
