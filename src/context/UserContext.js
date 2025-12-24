@@ -1,3 +1,4 @@
+// context/UserContext.js
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
@@ -13,7 +14,7 @@ export function UserProvider({ children }) {
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
-    setLoading(false);
+    setLoading(false); // hydration finished
   }, []);
 
   const login = (userData) => {
