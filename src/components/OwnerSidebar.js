@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Home, MessageSquare, Settings, LogOut, ChevronRight, BedDouble, User } from 'lucide-react';
+import { Home, MessageSquare, Settings, LogOut, ChevronRight, BedDouble, User, Bell } from 'lucide-react';
 
 export default function OwnerSidebar({ activeTab, onTabChange, collapsed, onToggleCollapse }) {
   const router = useRouter();
@@ -13,6 +13,7 @@ export default function OwnerSidebar({ activeTab, onTabChange, collapsed, onTogg
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} />, notification: 0, path: '/dashboard/owner' },
     { id: 'rooms', label: 'My Rooms', icon: <BedDouble size={20} />, notification: 2, path: '/dashboard/owner/rooms' },
     { id: 'messages', label: 'Messages', icon: <MessageSquare size={20} />, notification: hasUnreadMessages ? 3 : 0, path: '/dashboard/owner/messages' },
+    { id: 'notifications', label: 'Notifications', icon: <Bell size={20} />, notification: 5, path: '/dashboard/owner/notification' },
     { id: 'profile', label: 'Profile', icon: <User size={20} />, notification: 0, path: '/dashboard/owner/profile' },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} />, notification: 0, path: '/dashboard/owner/settings' },
   ];
