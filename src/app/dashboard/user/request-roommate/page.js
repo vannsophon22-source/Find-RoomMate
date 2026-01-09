@@ -68,6 +68,22 @@ const loadFromLocalStorage = (key, defaultValue = null) => {
   }
 }
 
+// Helper function to calculate description similarity
+const calculateSimilarity = (text1, text2) => {
+  if (!text1 || !text2) return 0;
+  
+  const words1 = text1.toLowerCase().split(/\s+/);
+  const words2 = text2.toLowerCase().split(/\s+/);
+  
+  const commonWords = words1.filter(word => 
+    words2.includes(word) && word.length > 2
+  ).length;
+  
+  const totalUniqueWords = new Set([...words1, ...words2]).size;
+  
+  return totalUniqueWords > 0 ? (commonWords / totalUniqueWords) * 100 : 0;
+}
+
 export default function RequestRoommatePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -76,34 +92,7 @@ export default function RequestRoommatePage() {
   const [step, setStep] = useState(initialStep)
   const [loading, setLoading] = useState(false)
   const [currentPostId, setCurrentPostId] = useState(initialPostId || null)
-  
-  // Preset questions for quick selection
-  const presetQuestions = {
-    habits: [
-      { text: "What's your typical sleep schedule?", icon: <Moon size={16} />, category: "Lifestyle" },
-      { text: "Are you an early bird or night owl?", icon: <Clock size={16} />, category: "Lifestyle" },
-      { text: "How often do you cook at home?", icon: <Coffee size={16} />, category: "Habits" },
-      { text: "Do you smoke or vape?", icon: <X size={16} />, category: "Habits" },
-      { text: "Do you drink alcohol?", icon: <Coffee size={16} />, category: "Habits" },
-      { text: "How do you handle cleaning duties?", icon: <CheckCircle size={16} />, category: "Habits" }
-    ],
-    preferences: [
-      { text: "Are you comfortable with overnight guests?", icon: <Users size={16} />, category: "Preferences" },
-      { text: "Do you have or plan to have pets?", icon: <Dog size={16} />, category: "Preferences" },
-      { text: "What's your noise tolerance level?", icon: <Music size={16} />, category: "Preferences" },
-      { text: "Do you prefer quiet study time?", icon: <Moon size={16} />, category: "Preferences" },
-      { text: "Are you okay with shared food?", icon: <Coffee size={16} />, category: "Preferences" },
-      { text: "How do you feel about parties at home?", icon: <Music size={16} />, category: "Preferences" }
-    ],
-    compatibility: [
-      { text: "What temperature do you prefer?", icon: <Thermometer size={16} />, category: "Compatibility" },
-      { text: "Are you neat or more relaxed about cleanliness?", icon: <CheckCircle size={16} />, category: "Compatibility" },
-      { text: "Do you watch TV/movies in common areas?", icon: <ImageIcon size={16} />, category: "Compatibility" },
-      { text: "What's your music preference?", icon: <Music size={16} />, category: "Compatibility" },
-      { text: "How often do you have friends over?", icon: <Users size={16} />, category: "Compatibility" },
-      { text: "What are your weekend habits?", icon: <Calendar size={16} />, category: "Compatibility" }
-    ]
-  }
+  const [matchScore, setMatchScore] = useState(0)
 
   // Load saved data from localStorage on initial render
   const [roommateRequestForm, setRoommateRequestForm] = useState(() => 
@@ -115,8 +104,8 @@ export default function RequestRoommatePage() {
       gender: '',
       pricePerPerson: '',
       description: '',
-      questions: [],
-      amenities: []
+      amenities: [],
+      lifestylePreferences: ''
     })
   )
 
@@ -124,8 +113,8 @@ export default function RequestRoommatePage() {
     loadFromLocalStorage('beRoommateForm', {
       location: '',
       budget: '',
-      preferences: '',
-      questions: []
+      lifestyleDescription: '',
+      preferences: ''
     })
   )
 
@@ -157,6 +146,13 @@ export default function RequestRoommatePage() {
     'Sen Sok',
     'Boeung Keng Kang',
     'Chroy Changvar'
+  ]
+
+  // Lifestyle tags for quick selection
+  const lifestyleTags = [
+    'Quiet', 'Social', 'Clean', 'Studious', 'Night Owl', 'Early Bird',
+    'Vegetarian', 'Pet Lover', 'Fitness Enthusiast', 'Gamer', 'Music Lover',
+    'Minimalist', 'Home Cook', 'Outdoorsy', 'Tech Savvy', 'Artistic'
   ]
 
   // Get current post for viewing/editing
@@ -218,73 +214,16 @@ export default function RequestRoommatePage() {
     }))
   }
 
-  // Add preset question
-  const addPresetQuestion = (question, formType) => {
-    const questionText = question.text
+  const toggleLifestyleTag = (tag) => {
+    const tags = roommateRequestForm.lifestylePreferences?.split(',') || []
+    const updatedTags = tags.includes(tag)
+      ? tags.filter(t => t !== tag).join(',')
+      : [...tags, tag].join(',')
     
-    if (formType === 'haveRoom') {
-      if (!roommateRequestForm.questions.some(q => q.text === questionText)) {
-        setRoommateRequestForm(prev => ({
-          ...prev,
-          questions: [...prev.questions, { text: questionText, preset: true, category: question.category }]
-        }))
-      }
-    } else {
-      if (!beRoommateForm.questions.some(q => q.text === questionText)) {
-        setBeRoommateForm(prev => ({
-          ...prev,
-          questions: [...prev.questions, { text: questionText, preset: true, category: question.category }]
-        }))
-      }
-    }
-  }
-
-  // Add custom question
-  const addCustomQuestion = (formType) => {
-    if (formType === 'haveRoom') {
-      setRoommateRequestForm(prev => ({
-        ...prev,
-        questions: [...prev.questions, { text: '', preset: false, category: 'Custom' }]
-      }))
-    } else {
-      setBeRoommateForm(prev => ({
-        ...prev,
-        questions: [...prev.questions, { text: '', preset: false, category: 'Custom' }]
-      }))
-    }
-  }
-
-  // Update question text
-  const updateQuestion = (index, value, formType) => {
-    if (formType === 'haveRoom') {
-      const newQuestions = [...roommateRequestForm.questions]
-      newQuestions[index] = { ...newQuestions[index], text: value }
-      setRoommateRequestForm(prev => ({ ...prev, questions: newQuestions }))
-    } else {
-      const newQuestions = [...beRoommateForm.questions]
-      newQuestions[index] = { ...newQuestions[index], text: value }
-      setBeRoommateForm(prev => ({ ...prev, questions: newQuestions }))
-    }
-  }
-
-  // Remove question
-  const removeQuestion = (index, formType) => {
-    if (formType === 'haveRoom') {
-      const newQuestions = roommateRequestForm.questions.filter((_, i) => i !== index)
-      setRoommateRequestForm(prev => ({ ...prev, questions: newQuestions }))
-    } else {
-      const newQuestions = beRoommateForm.questions.filter((_, i) => i !== index)
-      setBeRoommateForm(prev => ({ ...prev, questions: newQuestions }))
-    }
-  }
-
-  // Check if question is already added
-  const isQuestionAdded = (questionText, formType) => {
-    if (formType === 'haveRoom') {
-      return roommateRequestForm.questions.some(q => q.text === questionText)
-    } else {
-      return beRoommateForm.questions.some(q => q.text === questionText)
-    }
+    setRoommateRequestForm(prev => ({
+      ...prev,
+      lifestylePreferences: updatedTags
+    }))
   }
 
   // Submit form for users who HAVE a room and want to find roommates
@@ -292,15 +231,9 @@ export default function RequestRoommatePage() {
     e.preventDefault()
     setLoading(true)
     try {
-      // Filter out empty questions
-      const filteredQuestions = roommateRequestForm.questions
-        .filter(q => q.text.trim() !== '')
-        .map(q => q.text)
-      
       const postId = Date.now()
       const formData = { 
         ...roommateRequestForm, 
-        questions: filteredQuestions,
         id: postId,
         createdAt: new Date().toISOString(),
         type: 'roommate_request',
@@ -331,14 +264,8 @@ export default function RequestRoommatePage() {
     e.preventDefault()
     setLoading(true)
     try {
-      // Filter out empty questions
-      const filteredQuestions = roommateRequestForm.questions
-        .filter(q => q.text.trim() !== '')
-        .map(q => q.text)
-      
       const updatedPost = { 
         ...roommateRequestForm, 
-        questions: filteredQuestions,
         id: currentPost.id,
         createdAt: currentPost.createdAt,
         updatedAt: new Date().toISOString(),
@@ -381,15 +308,9 @@ export default function RequestRoommatePage() {
     e.preventDefault()
     setLoading(true)
     try {
-      // Filter out empty questions
-      const filteredQuestions = beRoommateForm.questions
-        .filter(q => q.text.trim() !== '')
-        .map(q => q.text)
-      
       const formData = { 
         ...beRoommateForm, 
-        questions: filteredQuestions,
-        id: Date.now(), // Generate unique ID
+        id: Date.now(),
         createdAt: new Date().toISOString(),
         type: 'roommate_seeker',
         status: 'active'
@@ -403,12 +324,12 @@ export default function RequestRoommatePage() {
       setBeRoommateForm({
         location: '',
         budget: '',
-        preferences: '',
-        questions: []
+        lifestyleDescription: '',
+        preferences: ''
       })
       
       // Show matching posts
-      setStep(4) // Go to recommended listings
+      setStep(4)
     } catch (error) {
       console.error('Error:', error)
       alert('Something went wrong. Please try again.')
@@ -420,11 +341,6 @@ export default function RequestRoommatePage() {
   // Load post data into form for editing
   const handleEditPost = () => {
     if (currentPost) {
-      // Convert questions array format if needed
-      const questions = currentPost.questions.map(q => 
-        typeof q === 'string' ? { text: q, preset: false, category: 'Custom' } : q
-      )
-      
       setRoommateRequestForm({
         title: currentPost.title || '',
         image: currentPost.image || '',
@@ -433,12 +349,51 @@ export default function RequestRoommatePage() {
         gender: currentPost.gender || '',
         pricePerPerson: currentPost.pricePerPerson || '',
         description: currentPost.description || '',
-        questions: questions || [],
-        amenities: currentPost.amenities || []
+        amenities: currentPost.amenities || [],
+        lifestylePreferences: currentPost.lifestylePreferences || ''
       })
       setStep(7) // Go to edit form
     }
   }
+
+  // Calculate match score between a room post and seeker
+  const calculateMatchScore = (roomPost) => {
+    let score = 0;
+    let totalCriteria = 0;
+
+    // Location match (30 points)
+    if (beRoommateForm.location && roomPost.location) {
+      if (beRoommateForm.location === roomPost.location) {
+        score += 30;
+      }
+    }
+    totalCriteria += 30;
+
+    // Budget match (30 points)
+    if (beRoommateForm.budget && roomPost.pricePerPerson) {
+      const seekerBudget = parseInt(beRoommateForm.budget);
+      const roomPrice = parseInt(roomPost.pricePerPerson);
+      if (seekerBudget >= roomPrice) {
+        score += 30;
+      } else if (seekerBudget >= roomPrice * 0.8) {
+        score += 15; // Partial match
+      }
+    }
+    totalCriteria += 30;
+
+    // Lifestyle description match (40 points)
+    if (beRoommateForm.lifestyleDescription && roomPost.description) {
+      const similarity = calculateSimilarity(
+        beRoommateForm.lifestyleDescription,
+        roomPost.description
+      );
+      score += (similarity / 100) * 40; // Convert percentage to points
+    }
+    totalCriteria += 40;
+
+    // Normalize to 100
+    return Math.min(Math.round((score / totalCriteria) * 100), 100);
+  };
 
   // Progress steps
   const getProgressSteps = () => {
@@ -450,41 +405,33 @@ export default function RequestRoommatePage() {
     return steps
   }
 
-  // Filter listings based on form data (mock recommendations)
+  // Get recommended listings with match scores
   const getRecommendedListings = () => {
     // First, try to match with actual roommate requests
-    const matchingRequests = roommateRequests.filter(request => {
-      const matchesLocation = beRoommateForm.location ? 
-        request.location.toLowerCase().includes(beRoommateForm.location.toLowerCase()) : true
-      const matchesBudget = beRoommateForm.budget ? 
-        parseInt(request.pricePerPerson) <= parseInt(beRoommateForm.budget) : true
-      return matchesLocation && matchesBudget
-    })
-    
+    const matchingRequests = roommateRequests
+      .map(request => {
+        const matchScore = calculateMatchScore(request);
+        return {
+          ...request,
+          matchScore,
+          type: 'roommate_request',
+          isMock: false
+        };
+      })
+      .filter(request => request.matchScore >= 50) // Only show matches above 50%
+      .sort((a, b) => b.matchScore - a.matchScore); // Sort by highest match
+
     // If no matching requests, show some mock listings
     if (matchingRequests.length === 0) {
-      return listings.filter(listing => {
-        const matchesLocation = beRoommateForm.location ? 
-          listing.location.toLowerCase().includes(beRoommateForm.location.toLowerCase()) : true
-        const matchesBudget = beRoommateForm.budget ? 
-          listing.price <= parseInt(beRoommateForm.budget) : true
-        return matchesLocation && matchesBudget
-      }).slice(0, 6)
+      return listings.slice(0, 6).map(listing => ({
+        ...listing,
+        matchScore: 75, // Default score for mock listings
+        type: 'roommate_request',
+        isMock: true
+      }));
     }
-    
-    // Convert requests to listing format for display
-    return matchingRequests.map((request, index) => ({
-      id: request.id,
-      title: request.title || `Room in ${request.location}`,
-      description: request.description || 'Looking for roommates',
-      price: parseInt(request.pricePerPerson) || 0,
-      location: request.location,
-      image: request.image || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&q=80',
-      type: 'roommate_request',
-      isMock: true,
-      amenities: request.amenities || [],
-      roommatesNeeded: request.numberOfMembers
-    }))
+
+    return matchingRequests;
   }
 
   return (
@@ -508,7 +455,7 @@ export default function RequestRoommatePage() {
           </h1>
           
           <p className="text-xl text-white/90 max-w-2xl mx-auto mb-10">
-            Connect with compatible roommates in just a few steps
+            Connect with compatible roommates based on lifestyle and preferences
           </p>
           
           {/* Progress Bar */}
@@ -738,188 +685,49 @@ export default function RequestRoommatePage() {
             {/* Description */}
             <div className="space-y-2">
               <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                Description <span className="text-red-500">*</span>
+                Room & Lifestyle Description <span className="text-red-500">*</span>
               </label>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                Describe the room, house rules, neighborhood, and what kind of roommates you're looking for
+              </p>
               <textarea 
                 name="description" 
                 value={roommateRequestForm.description} 
                 onChange={handleRoommateRequestChange} 
-                placeholder="Describe the room, house rules, neighborhood, and what you're looking for in roommates..." 
+                placeholder="Example: Looking for quiet, clean roommates who enjoy cooking. The apartment has a shared kitchen and living room. We value respect and communication..." 
                 required 
                 rows="4"
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
 
-            {/* Questions for Roommates */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                    <MessageSquare size={18} className="text-gray-400" />
-                    Questions for Potential Roommates
-                  </label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Select questions to filter compatible roommates
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addCustomQuestion('haveRoom')}
-                  className="flex items-center gap-2 px-4 py-2 text-sm bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
-                >
-                  <Plus size={16} />
-                  Custom Question
-                </button>
-              </div>
-
-              {/* Selected Questions */}
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-700 dark:text-gray-300">Selected Questions ({roommateRequestForm.questions.length})</h4>
-                {roommateRequestForm.questions.length > 0 ? (
-                  <div className="space-y-2">
-                    {roommateRequestForm.questions.map((question, index) => (
-                      <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.preset && question.icon}
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              {question.text || `Custom question ${index + 1}`}
-                            </span>
-                            <span className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded-full">
-                              {question.category}
-                            </span>
-                          </div>
-                          {!question.preset && (
-                            <input
-                              type="text"
-                              value={question.text}
-                              onChange={(e) => updateQuestion(index, e.target.value, 'haveRoom')}
-                              placeholder="Enter your custom question..."
-                              className="w-full mt-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
-                            />
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeQuestion(index, 'haveRoom')}
-                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400 text-sm italic">No questions selected yet</p>
-                )}
-              </div>
-
-              {/* Preset Questions Categories */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-700 dark:text-gray-300">Quick Add Questions</h4>
-                
-                {/* Lifestyle & Habits */}
-                <div>
-                  <h5 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                    <Clock size={14} /> Lifestyle & Habits
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {presetQuestions.habits.map((question, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => addPresetQuestion(question, 'haveRoom')}
-                        disabled={isQuestionAdded(question.text, 'haveRoom')}
-                        className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
-                          isQuestionAdded(question.text, 'haveRoom')
-                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.icon}
-                            <span className="text-sm">{question.text}</span>
-                          </div>
-                        </div>
-                        {isQuestionAdded(question.text, 'haveRoom') ? (
-                          <Check size={16} className="text-emerald-500" />
-                        ) : (
-                          <Plus size={16} className="text-gray-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Preferences */}
-                <div>
-                  <h5 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                    <Heart size={14} /> Preferences
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {presetQuestions.preferences.map((question, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => addPresetQuestion(question, 'haveRoom')}
-                        disabled={isQuestionAdded(question.text, 'haveRoom')}
-                        className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
-                          isQuestionAdded(question.text, 'haveRoom')
-                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.icon}
-                            <span className="text-sm">{question.text}</span>
-                          </div>
-                        </div>
-                        {isQuestionAdded(question.text, 'haveRoom') ? (
-                          <Check size={16} className="text-emerald-500" />
-                        ) : (
-                          <Plus size={16} className="text-gray-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Compatibility */}
-                <div>
-                  <h5 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                    <ThumbsUp size={14} /> Compatibility
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {presetQuestions.compatibility.map((question, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => addPresetQuestion(question, 'haveRoom')}
-                        disabled={isQuestionAdded(question.text, 'haveRoom')}
-                        className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
-                          isQuestionAdded(question.text, 'haveRoom')
-                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.icon}
-                            <span className="text-sm">{question.text}</span>
-                          </div>
-                        </div>
-                        {isQuestionAdded(question.text, 'haveRoom') ? (
-                          <Check size={16} className="text-emerald-500" />
-                        ) : (
-                          <Plus size={16} className="text-gray-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            {/* Lifestyle Tags */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
+                <Heart size={18} className="text-gray-400" />
+                Lifestyle Preferences
+              </label>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Select tags that describe your ideal roommate's lifestyle
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {lifestyleTags.map(tag => {
+                  const isSelected = roommateRequestForm.lifestylePreferences?.split(',').includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleLifestyleTag(tag)}
+                      className={`px-4 py-2 rounded-full border transition-all ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -1082,23 +890,21 @@ export default function RequestRoommatePage() {
                     </div>
                   </div>
 
-                  {/* Questions for Roommates */}
-                  {currentPost.questions && currentPost.questions.length > 0 && (
+                  {/* Lifestyle Preferences */}
+                  {currentPost.lifestylePreferences && (
                     <div>
-                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Questions for Roommates</h3>
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Lifestyle Preferences</h3>
                       <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-2xl">
-                        <ul className="space-y-3">
-                          {currentPost.questions.map((question, index) => (
-                            <li key={index} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg">
-                              <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{index + 1}</span>
-                              </div>
-                              <span className="text-gray-700 dark:text-gray-300">
-                                {typeof question === 'string' ? question : question.text}
-                              </span>
-                            </li>
+                        <div className="flex flex-wrap gap-2">
+                          {currentPost.lifestylePreferences.split(',').map((tag, index) => (
+                            <span 
+                              key={index} 
+                              className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full"
+                            >
+                              {tag}
+                            </span>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1172,404 +978,6 @@ export default function RequestRoommatePage() {
           </div>
         )}
 
-        {/* Step 7: Edit Post Form */}
-        {step === 7 && currentPost && (
-          <form onSubmit={handleUpdatePost} className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 md:p-10 space-y-8 border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full mb-3">
-                  <Edit size={16} className="text-blue-600 dark:text-blue-400" />
-                  <span className="text-blue-700 dark:text-blue-300 text-sm font-medium">Edit Roommate Request</span>
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Update Your Post</h2>
-                <p className="text-gray-600 dark:text-gray-400">Make changes to your roommate request</p>
-              </div>
-              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">Edit Mode</div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Title */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                  <Home size={18} className="text-gray-400" />
-                  Listing Title <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  name="title" 
-                  value={roommateRequestForm.title} 
-                  onChange={handleRoommateRequestChange} 
-                  placeholder="e.g., Spacious 3BR Apartment in City Center" 
-                  required 
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Image URL */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                  <ImageIcon size={18} className="text-gray-400" />
-                  Room Image URL
-                </label>
-                <input 
-                  type="url" 
-                  name="image" 
-                  value={roommateRequestForm.image} 
-                  onChange={handleRoommateRequestChange} 
-                  placeholder="https://example.com/room-image.jpg" 
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Location */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                  <MapPin size={18} className="text-gray-400" />
-                  Location <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="location"
-                  value={roommateRequestForm.location}
-                  onChange={handleRoommateRequestChange}
-                  required
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select Location</option>
-                  {locationOptions.map(loc => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Number of Members Needed */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                  <Users size={18} className="text-gray-400" />
-                  Roommates Needed <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setRoommateRequestForm(prev => ({
-                      ...prev,
-                      numberOfMembers: Math.max(1, prev.numberOfMembers - 1)
-                    }))}
-                    className="w-10 h-10 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    -
-                  </button>
-                  <span className="text-xl font-bold">{roommateRequestForm.numberOfMembers}</span>
-                  <button
-                    type="button"
-                    onClick={() => setRoommateRequestForm(prev => ({
-                      ...prev,
-                      numberOfMembers: prev.numberOfMembers + 1
-                    }))}
-                    className="w-10 h-10 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Preferred Gender */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                  <User size={18} className="text-gray-400" />
-                  Preferred Gender
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {genderOptions.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setRoommateRequestForm(prev => ({ ...prev, gender: option }))}
-                      className={`py-3 rounded-xl border-2 text-center font-medium transition-all ${
-                        roommateRequestForm.gender === option
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 hover:border-blue-300 text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Price Per Person */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                  <DollarSign size={18} className="text-gray-400" />
-                  Price Per Person <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <DollarSign className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input 
-                    type="number" 
-                    name="pricePerPerson" 
-                    value={roommateRequestForm.pricePerPerson} 
-                    onChange={handleRoommateRequestChange} 
-                    placeholder="Monthly cost per roommate" 
-                    required 
-                    min="0"
-                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                Description <span className="text-red-500">*</span>
-              </label>
-              <textarea 
-                name="description" 
-                value={roommateRequestForm.description} 
-                onChange={handleRoommateRequestChange} 
-                placeholder="Describe the room, house rules, neighborhood, and what you're looking for in roommates..." 
-                required 
-                rows="4"
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Questions for Roommates */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                    <MessageSquare size={18} className="text-gray-400" />
-                    Questions for Potential Roommates
-                  </label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Select questions to filter compatible roommates
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addCustomQuestion('haveRoom')}
-                  className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"
-                >
-                  <Plus size={16} />
-                  Custom Question
-                </button>
-              </div>
-
-              {/* Selected Questions */}
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-700 dark:text-gray-300">Selected Questions ({roommateRequestForm.questions.length})</h4>
-                {roommateRequestForm.questions.length > 0 ? (
-                  <div className="space-y-2">
-                    {roommateRequestForm.questions.map((question, index) => (
-                      <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.preset && question.icon}
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              {question.text || `Custom question ${index + 1}`}
-                            </span>
-                            <span className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded-full">
-                              {question.category}
-                            </span>
-                          </div>
-                          {!question.preset && (
-                            <input
-                              type="text"
-                              value={question.text}
-                              onChange={(e) => updateQuestion(index, e.target.value, 'haveRoom')}
-                              placeholder="Enter your custom question..."
-                              className="w-full mt-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
-                            />
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeQuestion(index, 'haveRoom')}
-                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400 text-sm italic">No questions selected yet</p>
-                )}
-              </div>
-
-              {/* Preset Questions Categories */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-700 dark:text-gray-300">Quick Add Questions</h4>
-                
-                {/* Lifestyle & Habits */}
-                <div>
-                  <h5 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                    <Clock size={14} /> Lifestyle & Habits
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {presetQuestions.habits.map((question, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => addPresetQuestion(question, 'haveRoom')}
-                        disabled={isQuestionAdded(question.text, 'haveRoom')}
-                        className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
-                          isQuestionAdded(question.text, 'haveRoom')
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.icon}
-                            <span className="text-sm">{question.text}</span>
-                          </div>
-                        </div>
-                        {isQuestionAdded(question.text, 'haveRoom') ? (
-                          <Check size={16} className="text-blue-500" />
-                        ) : (
-                          <Plus size={16} className="text-gray-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Preferences */}
-                <div>
-                  <h5 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                    <Heart size={14} /> Preferences
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {presetQuestions.preferences.map((question, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => addPresetQuestion(question, 'haveRoom')}
-                        disabled={isQuestionAdded(question.text, 'haveRoom')}
-                        className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
-                          isQuestionAdded(question.text, 'haveRoom')
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.icon}
-                            <span className="text-sm">{question.text}</span>
-                          </div>
-                        </div>
-                        {isQuestionAdded(question.text, 'haveRoom') ? (
-                          <Check size={16} className="text-blue-500" />
-                        ) : (
-                          <Plus size={16} className="text-gray-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Compatibility */}
-                <div>
-                  <h5 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                    <ThumbsUp size={14} /> Compatibility
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {presetQuestions.compatibility.map((question, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => addPresetQuestion(question, 'haveRoom')}
-                        disabled={isQuestionAdded(question.text, 'haveRoom')}
-                        className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
-                          isQuestionAdded(question.text, 'haveRoom')
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.icon}
-                            <span className="text-sm">{question.text}</span>
-                          </div>
-                        </div>
-                        {isQuestionAdded(question.text, 'haveRoom') ? (
-                          <Check size={16} className="text-blue-500" />
-                        ) : (
-                          <Plus size={16} className="text-gray-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Amenities */}
-            <div>
-              <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200 mb-3">
-                <Globe size={18} className="text-gray-400" />
-                Amenities Available
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                {amenitiesOptions.map((amenity) => (
-                  <button
-                    key={amenity.label}
-                    type="button"
-                    onClick={() => toggleAmenity(amenity.label)}
-                    className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                      roommateRequestForm.amenities.includes(amenity.label)
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 hover:border-blue-300'
-                    }`}
-                  >
-                    {amenity.icon}
-                    <span className="text-sm font-medium">{amenity.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
-              <button
-                type="button"
-                onClick={() => setStep(6)}
-                className="flex items-center gap-2 px-6 py-3 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white transition-colors"
-              >
-                <ChevronLeft size={20} />
-                Cancel
-              </button>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setStep(6)}
-                  className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
-                >
-                  Discard Changes
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="group px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      Updating...
-                    </>
-                  ) : (
-                    <>
-                      Save Changes
-                      <Check className="group-hover:scale-110 transition-transform" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
-
         {/* Step 3: User does NOT have room → Ask if they want a room */}
         {step === 3 && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 md:p-12 text-center space-y-8 border border-gray-100 dark:border-gray-700">
@@ -1619,7 +1027,7 @@ export default function RequestRoommatePage() {
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Be a Roommate</h3>
                     <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      Let us find roommates for you and match you with available rooms
+                      Let us find roommates for you based on lifestyle compatibility
                     </p>
                     <div className="flex items-center text-purple-600 dark:text-purple-400 font-semibold">
                       Find Roommates
@@ -1632,7 +1040,7 @@ export default function RequestRoommatePage() {
           </div>
         )}
 
-        {/* Step 4: Show recommended listings (after Be Roommate form) */}
+        {/* Step 4: Show recommended listings with match scores */}
         {step === 4 && (
           <section>
             <div className="flex items-center justify-between mb-8">
@@ -1657,9 +1065,17 @@ export default function RequestRoommatePage() {
                         alt={room.title}
                         className="w-full h-full object-cover"
                       />
-                      {room.isMock && (
-                        <div className="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-                          Roommate Request
+                      {!room.isMock && (
+                        <div className="absolute top-3 right-3">
+                          <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            room.matchScore >= 80 
+                              ? 'bg-green-500 text-white'
+                              : room.matchScore >= 60
+                              ? 'bg-yellow-500 text-white'
+                              : 'bg-orange-500 text-white'
+                          }`}>
+                            {room.matchScore}% Match
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1667,7 +1083,7 @@ export default function RequestRoommatePage() {
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white">{room.title}</h3>
                         <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                          ${room.price}<span className="text-sm text-gray-500">/month</span>
+                          ${room.pricePerPerson || room.price}<span className="text-sm text-gray-500">/month</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 mb-3">
@@ -1677,6 +1093,17 @@ export default function RequestRoommatePage() {
                       <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">
                         {room.description}
                       </p>
+                      {room.lifestylePreferences && (
+                        <div className="mb-4">
+                          <div className="flex flex-wrap gap-1">
+                            {room.lifestylePreferences.split(',').slice(0, 3).map((tag, idx) => (
+                              <span key={idx} className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {room.roommatesNeeded && (
                         <div className="mb-4">
                           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
@@ -1687,15 +1114,16 @@ export default function RequestRoommatePage() {
                       )}
                       <button
                         onClick={() => {
-                          if (room.isMock) {
-                            alert(`This is a roommate request posted by another user. Contact details would be available if we had a backend.`)
+                          if (room.type === 'roommate_request') {
+                            setCurrentPostId(room.id)
+                            setStep(6)
                           } else {
                             router.push(`/rooms/${room.id}`)
                           }
                         }}
                         className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-medium"
                       >
-                        {room.isMock ? 'View Roommate Request' : 'View Room Details'}
+                        {room.type === 'roommate_request' ? 'View Roommate Request' : 'View Room Details'}
                       </button>
                     </div>
                   </div>
@@ -1741,7 +1169,7 @@ export default function RequestRoommatePage() {
                   <span className="text-purple-700 dark:text-purple-300 text-sm font-medium">Be a Roommate</span>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Your Preferences</h2>
-                <p className="text-gray-600 dark:text-gray-400">Tell us what you're looking for</p>
+                <p className="text-gray-600 dark:text-gray-400">Tell us what you're looking for in a roommate</p>
               </div>
               <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">Step 2/3</div>
             </div>
@@ -1790,191 +1218,23 @@ export default function RequestRoommatePage() {
               </div>
             </div>
 
-            {/* Preferences */}
+            {/* Lifestyle Description */}
             <div className="space-y-2">
               <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                Your Preferences & Lifestyle
+                Your Lifestyle & Preferences <span className="text-red-500">*</span>
               </label>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                Describe your lifestyle, habits, daily routine, and what you're looking for in roommates
+              </p>
               <textarea
-                name="preferences"
-                value={beRoommateForm.preferences}
+                name="lifestyleDescription"
+                value={beRoommateForm.lifestyleDescription}
                 onChange={handleBeRoommateChange}
                 rows={4}
-                placeholder="Tell us about your lifestyle, habits, and what you're looking for in roommates..."
+                placeholder="Example: I'm a quiet student who enjoys cooking. I prefer clean spaces and value open communication. Looking for roommates who respect personal space and share similar values..."
+                required
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
-            </div>
-
-            {/* Questions for Potential Roommates/Hosts */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200">
-                    <MessageSquare size={18} className="text-gray-400" />
-                    Questions for Potential Roommates/Hosts
-                  </label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Select questions to ask potential roommates or hosts
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addCustomQuestion('beRoommate')}
-                  className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50"
-                >
-                  <Plus size={16} />
-                  Custom Question
-                </button>
-              </div>
-
-              {/* Selected Questions */}
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-700 dark:text-gray-300">Selected Questions ({beRoommateForm.questions.length})</h4>
-                {beRoommateForm.questions.length > 0 ? (
-                  <div className="space-y-2">
-                    {beRoommateForm.questions.map((question, index) => (
-                      <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.preset && question.icon}
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              {question.text || `Custom question ${index + 1}`}
-                            </span>
-                            <span className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded-full">
-                              {question.category}
-                            </span>
-                          </div>
-                          {!question.preset && (
-                            <input
-                              type="text"
-                              value={question.text}
-                              onChange={(e) => updateQuestion(index, e.target.value, 'beRoommate')}
-                              placeholder="Enter your custom question..."
-                              className="w-full mt-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
-                            />
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeQuestion(index, 'beRoommate')}
-                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400 text-sm italic">No questions selected yet</p>
-                )}
-              </div>
-
-              {/* Preset Questions Categories */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-700 dark:text-gray-300">Quick Add Questions</h4>
-                
-                {/* Lifestyle & Habits */}
-                <div>
-                  <h5 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                    <Clock size={14} /> Lifestyle & Habits
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {presetQuestions.habits.map((question, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => addPresetQuestion(question, 'beRoommate')}
-                        disabled={isQuestionAdded(question.text, 'beRoommate')}
-                        className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
-                          isQuestionAdded(question.text, 'beRoommate')
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.icon}
-                            <span className="text-sm">{question.text}</span>
-                          </div>
-                        </div>
-                        {isQuestionAdded(question.text, 'beRoommate') ? (
-                          <Check size={16} className="text-purple-500" />
-                        ) : (
-                          <Plus size={16} className="text-gray-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Preferences */}
-                <div>
-                  <h5 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                    <Heart size={14} /> Preferences
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {presetQuestions.preferences.map((question, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => addPresetQuestion(question, 'beRoommate')}
-                        disabled={isQuestionAdded(question.text, 'beRoommate')}
-                        className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
-                          isQuestionAdded(question.text, 'beRoommate')
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.icon}
-                            <span className="text-sm">{question.text}</span>
-                          </div>
-                        </div>
-                        {isQuestionAdded(question.text, 'beRoommate') ? (
-                          <Check size={16} className="text-purple-500" />
-                        ) : (
-                          <Plus size={16} className="text-gray-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Compatibility */}
-                <div>
-                  <h5 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                    <ThumbsUp size={14} /> Compatibility
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {presetQuestions.compatibility.map((question, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => addPresetQuestion(question, 'beRoommate')}
-                        disabled={isQuestionAdded(question.text, 'beRoommate')}
-                        className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
-                          isQuestionAdded(question.text, 'beRoommate')
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            {question.icon}
-                            <span className="text-sm">{question.text}</span>
-                          </div>
-                        </div>
-                        {isQuestionAdded(question.text, 'beRoommate') ? (
-                          <Check size={16} className="text-purple-500" />
-                        ) : (
-                          <Plus size={16} className="text-gray-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">

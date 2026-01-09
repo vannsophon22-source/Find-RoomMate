@@ -116,12 +116,6 @@ export default function RoomDetailPage() {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => router.push(`/request-roommate?room=${room.id}`)}
-                className="w-full px-4 py-3 bg-emerald-500 text-white rounded-lg mb-2 hover:bg-emerald-600 transition"
-              >
-                Request Roommate
-              </button>
               <button className="w-full px-4 py-3 bg-white/80 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg border border-emerald-500 hover:bg-white transition">
                 Message Owner
               </button>
