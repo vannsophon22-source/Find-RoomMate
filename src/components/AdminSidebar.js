@@ -2,37 +2,19 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Home,
-  BarChart,
   Users,
-  ShoppingCart,
-  Package,
-  Settings,
   FileText,
-  HelpCircle,
+  Settings,
   LogOut,
-  ChevronLeft,
-  ChevronRight,
-  User,
   Shield,
-  DollarSign,
+  Bed,
   Bell,
-  Calendar,
-  MessageSquare,
-  Bed
+  User
 } from 'lucide-react';
-const handleLogout = () => {
-  // clear auth (adjust if you use something else)
-  localStorage.removeItem("token");
-  localStorage.removeItem("admin");
-
-  router.push("/login");
-};
-
 
 const AdminSidebar = ({ activeTab, onTabChange, collapsed, onToggleCollapse }) => {
   const router = useRouter();
   const [hoveredItem, setHoveredItem] = useState(null);
-  const [hasUnreadMessages] = useState(true);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} />, path: '/dashboard/admin' },
@@ -47,6 +29,15 @@ const AdminSidebar = ({ activeTab, onTabChange, collapsed, onToggleCollapse }) =
     { id: 'settings', label: 'Settings', icon: <Settings size={20} />, path: '/dashboard/admin/setting' },
   ];
 
+  // ✅ Logout function
+  const handleLogout = () => {
+    // Clear any admin session data
+    localStorage.removeItem('token');
+    localStorage.removeItem('admin');
+    // Redirect to login page
+    router.push('/login');
+  };
+
   return (
     <div className={`h-screen sticky top-0 bg-gray-900 text-white flex flex-col transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'}`}>
       {/* Header */}
@@ -55,12 +46,15 @@ const AdminSidebar = ({ activeTab, onTabChange, collapsed, onToggleCollapse }) =
           <div className="bg-blue-600 p-2 rounded-lg">
             <Shield size={24} />
           </div>
+          {!collapsed && (
             <div>
               <h1 className="text-xl font-bold">Admin Panel</h1>
               <p className="text-gray-400 text-sm">Welcome back</p>
             </div>
+          )}
         </div>
       </div>
+
       {/* Main Menu */}
       <div className="flex-1 overflow-y-auto py-4">
         <div className="px-2">
@@ -82,12 +76,6 @@ const AdminSidebar = ({ activeTab, onTabChange, collapsed, onToggleCollapse }) =
                 {item.icon}
               </div>
               {!collapsed && <span className="ml-3">{item.label}</span>}
-              {!collapsed && item.id === 'messages' && (
-                <span className="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full">3</span>
-              )}
-              {!collapsed && item.id === 'notifications' && (
-                <span className="ml-auto bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">5</span>
-              )}
             </button>
           ))}
         </div>
@@ -119,16 +107,21 @@ const AdminSidebar = ({ activeTab, onTabChange, collapsed, onToggleCollapse }) =
 
       {/* Footer */}
       <div className="p-4 border-t border-gray-800">
-       <button
-  onClick={handleLogout}
-  className={`w-full flex items-center justify-center py-3 px-3 rounded-lg bg-red-600 hover:bg-red-700 transition-colors ${
-    collapsed ? '' : 'space-x-2'
-  }`}
->
-  <LogOut size={20} />
-  {!collapsed && <span>Logout</span>}
-</button>
-
+        <button
+          onClick={handleLogout} // ✅ Add onClick
+          className={`w-full flex items-center justify-center py-3 px-3 rounded-lg bg-red-600 hover:bg-red-700 transition-colors ${
+            collapsed ? '' : 'space-x-2'
+          }`}
+        >
+          <LogOut size={20} />
+          {!collapsed && <span>Logout</span>}
+        </button>
+        {!collapsed && (
+          <div className="mt-4 text-center text-gray-400 text-sm">
+            <p>v2.1.0</p>
+            <p className="text-xs mt-1">© 2024 Admin Panel</p>
+          </div>
+        )}
       </div>
     </div>
   );
