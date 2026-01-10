@@ -17,8 +17,7 @@ export default function Footer() {
           {/* Navigation Links */}
           <div className="flex flex-col space-y-2">
             <h3 className="font-semibold text-lg mb-2">Quick Links</h3>
-            <a href="#" className="hover:text-yellow-300 transition">Home</a>
-            <a href="#" className="hover:text-yellow-300 transition">Listings</a>
+            <a href="#" className="hover:text-yellow-300 transition">Home</a>s
             <a href="#" className="hover:text-yellow-300 transition">Room</a>
             <a href="#" className="hover:text-yellow-300 transition">Request Roommate</a>
           </div>
