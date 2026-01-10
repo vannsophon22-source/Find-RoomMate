@@ -20,6 +20,14 @@ import {
   MessageSquare,
   Bed
 } from 'lucide-react';
+const handleLogout = () => {
+  // clear auth (adjust if you use something else)
+  localStorage.removeItem("token");
+  localStorage.removeItem("admin");
+
+  router.push("/login");
+};
+
 
 const AdminSidebar = ({ activeTab, onTabChange, collapsed, onToggleCollapse }) => {
   const router = useRouter();
@@ -111,20 +119,16 @@ const AdminSidebar = ({ activeTab, onTabChange, collapsed, onToggleCollapse }) =
 
       {/* Footer */}
       <div className="p-4 border-t border-gray-800">
-        <button
-          className={`w-full flex items-center justify-center py-3 px-3 rounded-lg bg-red-600 hover:bg-red-700 transition-colors ${
-            collapsed ? '' : 'space-x-2'
-          }`}
-        >
-          <LogOut size={20} />
-          {!collapsed && <span>Logout</span>}
-        </button>
-        {!collapsed && (
-          <div className="mt-4 text-center text-gray-400 text-sm">
-            <p>v2.1.0</p>
-            <p className="text-xs mt-1">© 2024 Admin Panel</p>
-          </div>
-        )}
+       <button
+  onClick={handleLogout}
+  className={`w-full flex items-center justify-center py-3 px-3 rounded-lg bg-red-600 hover:bg-red-700 transition-colors ${
+    collapsed ? '' : 'space-x-2'
+  }`}
+>
+  <LogOut size={20} />
+  {!collapsed && <span>Logout</span>}
+</button>
+
       </div>
     </div>
   );
