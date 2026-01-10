@@ -116,9 +116,6 @@ export default function RoomDetailPage() {
                   </div>
                 </div>
               </div>
-              <button className="w-full px-4 py-3 bg-white/80 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg border border-emerald-500 hover:bg-white transition">
-                Message Owner
-              </button>
               <button
                 onClick={() => alert('Booking feature coming soon')}
                 className="w-full px-4 py-3 mt-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
