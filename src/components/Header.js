@@ -115,10 +115,10 @@ export default function Header() {
 
                   {showNotifications && (
                     <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded-xl overflow-hidden z-50">
-                      <div className="p-4 border-b border-gray-100 font-semibold">Notifications</div>
+                      <div className="p-4 border-b border-gray-100 font-semibold text-gray-800">Notifications</div>
                       {notifications.length === 0 && <div className="p-4 text-gray-500 text-sm">No notifications</div>}
                       {notifications.map((note, i) => (
-                        <div key={i} className="p-3 border-b border-gray-100 text-sm hover:bg-gray-50 cursor-pointer">
+                        <div key={i} className="p-3 border-b border-gray-100 text-sm text-gray-800 hover:bg-gray-50 cursor-pointer">
                           {note.message}
                         </div>
                       ))}
